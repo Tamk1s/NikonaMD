@@ -187,7 +187,7 @@ Controller_4		equ RAM_InputData+pad_len*3
 
 System_Init:
 		or.w	#$0700,sr
-	if PICO=0
+	;!@ if PICO=0
 		move.w	#$0100,(z80_bus).l	; Stop Z80
 .wait:
 		btst	#0,(z80_bus).l		; Wait Z80
@@ -197,7 +197,7 @@ System_Init:
 		move.b	d0,(sys_ctrl_2).l	; Controller 2
 		move.b	d0,(sys_ctrl_3).l	; Modem
 		move.w	#0,(z80_bus).l		; Enable Z80
-	endif
+	;!@ endif
 		move.w	#$4EF9,d0		; JMP opcode
  		move.w	d0,(RAM_VBlankJump).w
 		move.w	d0,(RAM_HBlankJump).w
@@ -428,7 +428,8 @@ Sound_Update:
 System_Input:
 	if PICO
 		lea	(RAM_InputData).w,a6
-		lea	($800003).l,a5
+		;!@ lea	($800003).l,a5
+		lea	(pico_btn).l,a5
 		moveq	#0,d7
 		move.b	(a5),d7			; $800003: %P00BRLDU
 		eori.w	#$FF,d7
@@ -442,9 +443,9 @@ System_Input:
 		and.w	d6,d5
 		move.w	d5,pad_press(a6)
 		move.w	d6,pad_hold(a6)
-		move.b	2(a5),d7
+		move.b	2(a5),d7		;Pen X MSB
 		lsl.w	#8,d7
-		move.b	4(a5),d7
+		move.b	4(a5),d7		;Pen X LSB
 		sub.w	#$3C,d7
 		bpl.s	.x_valid	 	; Failsafe negative X
 		clr.w	d7
@@ -453,15 +454,15 @@ System_Input:
 	; $0000-$00EF - Tablet
 	; $0100-$01EF - Storyware
 		moveq	#0,d7
-		move.b	6(a5),d6
+		move.b	6(a5),d6		;Pen Y MSB
 		lsl.w	#8,d6
-		move.b	8(a5),d6
+		move.b	8(a5),d6		;Pen Y LSB
 		subi.w	#$1FC,d6
 		bmi.s	.bad_y
 		move.w	d6,d7
 .bad_y:
 		move.w	d7,pad_y(a6)
-		move.b	10(a5),d6
+		move.b	10(a5),d6		;Pico page
 		moveq	#0,d7
 		moveq	#6-1,d5		; 6 pages
 .page_it:

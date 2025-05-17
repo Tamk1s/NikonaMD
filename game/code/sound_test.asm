@@ -1,4 +1,5 @@
 ; ===========================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
 ; GEMA SOUND TESTER
 ; ----------------------------------------------------------------
@@ -8,7 +9,7 @@
 ; Settings
 ; ------------------------------------------------------
 
-VIEW_GEMAINFO		equ False		; ** Using this causes loss of DAC quality **
+VIEW_GEMAINFO		equ True	; ** Using this causes loss of DAC quality **
 VIEW_FAIRY		equ True		; Show status Dodo/Mifi/Fifi
 
 ; ====================================================================
@@ -28,6 +29,7 @@ SET_SNDVIEWY		equ 16
 setVram_Dodo		ds.b $30
 setVram_Mimi		ds.b $30
 setVram_Fifi		ds.b $30
+setVram_Pifi		ds.b $30	;!@ New
 			endmemory
 
 ; ====================================================================
@@ -54,6 +56,8 @@ RAM_FairyVars		ds.w 1
 RAM_CurrBeats		ds.w 1
 RAM_Copy_fmSpecial	ds.w 1
 RAM_Copy_HasDac		ds.w 1
+RAM_ScratchW		ds.w 1	;!@ Scratch word
+RAM_ScratchB		ds.b 1	;!@ Scratch byte
 sizeof_thisbuff		ds.l 0
 			endmemory
 
@@ -62,8 +66,7 @@ sizeof_thisbuff		ds.l 0
 ; ====================================================================
 ; ------------------------------------------------------
 ; Init
-; ------------------------------------------------------
-
+; ------------------------------------------------------				
 		bsr	Video_DisplayOff
 		bsr	System_Default
 	; ----------------------------------------------
@@ -100,6 +103,17 @@ sizeof_thisbuff		ds.l 0
 		move.w	#DEF_PrintVramW|DEF_PrintPal,d2
 		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
 		bsr	Video_PrintW
+		
+	;!@ Subtitle
+	if PICO
+		lea	str_TesterTitle2(pc),a0
+		moveq	#10,d0
+		moveq	#4,d1
+		move.w	#DEF_PrintVramW|$4000,d2
+		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		bsr	Video_PrintW
+	endif
+		
 		lea	str_TesterInfo(pc),a0
 	if VIEW_FAIRY
 		moveq	#6,d0
@@ -111,7 +125,8 @@ sizeof_thisbuff		ds.l 0
 		bsr	Video_Print
 		lea	str_Instruc(pc),a0
 		moveq	#2,d0
-		moveq	#21,d1
+		;!@ moveq	#21,d1
+		moveq	#22,d1
 		move.w	#DEF_PrintVram|$4000,d2
 		bsr	Video_Print
 		bsr	.gema_viewinit
@@ -127,7 +142,6 @@ sizeof_thisbuff		ds.l 0
 		bsr	Video_BuildSprites
 		bsr	System_Render
 		bsr	Video_FadeIn_Full
-
 ; ====================================================================
 ; ------------------------------------------------------
 ; Loop
@@ -145,8 +159,13 @@ sizeof_thisbuff		ds.l 0
 	; LEFT/RIGHT
 		move.w	pad_press(a6),d7
 		move.w	d7,d6
-		andi.w	#JoyStart,d6
-		bne	.exit_this
+		;!@
+		if PICO
+			nop
+		else
+			;andi.w	#JoyStart,d6
+			;bne	.exit_this
+		endif
 		andi.w	#JoyLeft+JoyRight,d7
 		beq.s	.lr_seq
 		moveq	#1,d0
@@ -191,15 +210,21 @@ sizeof_thisbuff		ds.l 0
 		bsr	.show_me
 .xy_seq:
 
-	; C BUTTON
-		move.w	pad_press(a6),d7
+	; C BUTTON		
+		move.w	pad_press(a6),d7		
+		;!@ Now start button
+		if PICO
+		andi.w	#JoyStart,d7
+		else
 		andi.w	#JoyC+JoyZ,d7
+		endif
 		beq.s	.c_press
 		move.w	(RAM_GemaIndx).w,d2
 		andi.w	#JoyZ,d7
 		beq.s	.not_auto
 		moveq	#-1,d2
 .not_auto:
+
 		move.w	(RAM_GemaSeq).w,d0
 		move.w	(RAM_GemaBlk).w,d1
 		bsr	gemaPlaySeq
@@ -220,13 +245,16 @@ sizeof_thisbuff		ds.l 0
 		move.w	(RAM_GemaIndx).w,d1
 		bsr	gemaStopSeq
 .b_press:
+		;!@ Disabled
+		if PICO
+		nop
+		else				
 		move.w	pad_press(a6),d7
 		andi.w	#JoyA,d7
 		beq.s	.a_press
 		bsr	gemaStopAll
+		endif
 .a_press:
-
-
 ; 		move.w	pad_hold(a6),d7
 ; 		andi.w	#JoyA+JoyB+JoyC,d7
 ; 		bne.s	.n_up
@@ -256,6 +284,7 @@ sizeof_thisbuff		ds.l 0
 ; 		bpl.s	.n_cbtn
 
 ; .n_cbtn:
+		bsr	.show_me2	;!@
 		bra	.loop
 
 .exit_this:
@@ -294,7 +323,8 @@ sizeof_thisbuff		ds.l 0
 	else
 		moveq	#20,d0
 	endif
-		moveq	#12,d1
+		;!@ moveq	#12,d1
+		moveq	#10,d1
 		move.w	#DEF_PrintVram|DEF_PrintPal,d2
 		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
 		bsr	Video_PrintVal
@@ -305,7 +335,8 @@ sizeof_thisbuff		ds.l 0
 	else
 		moveq	#14,d0
 	endif
-		moveq	#9,d1
+		;!@ moveq	#9,d1
+		moveq	#8,d1
 		move.w	#DEF_PrintVramW|DEF_PrintPal,d2
 		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
 		bsr	Video_PrintValW
@@ -315,7 +346,115 @@ sizeof_thisbuff		ds.l 0
 		adda	#2,a0
 		addq.w	#5,d0
 		bra	Video_PrintValW
+		
+.show_me2:
+	;!@ New code for Pico PenX/Y, btn, version/type
+	if PICO
+		;Show Pico headers
+		lea	str_TesterInfo2(pc),a0
+		
+		if VIEW_FAIRY
+		moveq	#6,d0
+		else
+		moveq	#13,d0
+		endif
+		
+		moveq	#$0B,d1
+		move.w	#DEF_PrintVram|$4000,d2
+		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		bsr	Video_Print
+		
+		;Show Pico values
+		move.w	#DEF_PrintVram|DEF_PrintPal,d2
+		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		
+		;Type/Ver
+		lea	(RAM_ScratchW).w,a0
+		move.l	#1,a1
 
+		;Calculate word-sized Pico ver/type combo
+		move.b	(pico_copType).l,d0
+		lsl.w	#8,d0
+		move.b	(pico_ver).l,d1
+		or.w	d1,d0
+		move.w	d0,(a0)		
+		if VIEW_FAIRY
+		moveq	#22,d0
+		else
+		moveq	#29,d0
+		endif
+		moveq	#11,d1
+		bsr	Video_PrintVal
+		
+		
+		;PenX
+		lea	(RAM_ScratchW).w,a0
+		move.l	#1,a1
+		
+		;GetPen
+		;lea	(Controller_1).w,a6
+		move.w	pad_x(a6),d0
+		move.w	d0,(a0)		
+		if VIEW_FAIRY
+		moveq	#14,d0
+		else
+		moveq	#21,d0
+		endif
+		moveq	#12,d1
+		bsr	Video_PrintVal
+		
+		
+		;PenY
+		lea	(RAM_ScratchW).w,a0
+		move.l	#1,a1
+		
+		;GetPen
+		;lea	(Controller_1).w,a6
+		move.w	pad_y(a6),d0
+		move.w	d0,(a0)		
+		if VIEW_FAIRY
+		moveq	#20,d0
+		else
+		moveq	#27,d0
+		endif
+		moveq	#12,d1
+		bsr	Video_PrintVal
+		
+		
+		;Book
+		lea	(RAM_ScratchB).w,a0
+		move.l	#0,a1
+		
+		;GetBook
+		;lea	(Controller_1).w,a6
+		move.b	pad_page(a6),d0
+		move.b	d0,(a0)
+		if VIEW_FAIRY
+		moveq	#13,d0
+		else
+		moveq	#20,d0
+		endif
+		moveq	#13,d1
+		bsr	Video_PrintVal
+		
+		
+		;Btn
+		lea	(RAM_ScratchW).w,a0
+		move.l	#1,a1
+		
+		;GetBtn
+		;lea	(Controller_1).w,a6
+		move.w	pad_hold(a6),d0
+		move.w	d0,(a0)
+		if VIEW_FAIRY
+		moveq	#13,d0
+		else
+		moveq	#20,d0
+		endif
+		moveq	#14,d1
+		bsr	Video_PrintVal
+	endif
+		rts
 ; ; ------------------------------------------------------
 ;
 ; .jump_list:
@@ -499,6 +638,9 @@ sizeof_thisbuff		ds.l 0
 		addq.w	#1,d1			;
 		bsr	Objects_Make		;
 		addq.w	#1,d1			;
+		bsr	Objects_Make		;
+		;!@ New fairy for mouse sprite
+		addq.w	#1,d1			;
 		bsr	Objects_Make		; <-- until here
 	endif
 
@@ -618,6 +760,16 @@ sizeof_thisbuff		ds.l 0
 		moveq	#SET_SNDVIEWY+3,d1
 		moveq	#8-1,d7
 		bsr	.show_table
+		
+		;!@ PCM_Pico code
+		;if PICO
+		lea		strL_NoteNull(pc),a0
+		moveq	#$07,d0
+		moveq	#SET_SNDVIEWY+$04,d1
+		move.w	#DEF_PrintVram|DEF_PrintPal,d2
+		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		bsr		Video_Print
+		;endif
 	endif
 
 		rts
@@ -773,6 +925,19 @@ obj_Fairy:
 		move.w	#$90,d4
 .not_enbl:
 		addi.w	d4,4(a5)
+		
+		;!@ Mouse moving sprite
+		move.b	obj_subid(a6),d4
+		cmpi.b	#$03,d4
+		blt.s	.regular
+		nop		
+		if PICO
+		lea	(Controller_1).l,a5
+		move.w	pad_x(a5),d2
+		move.w	pad_y(a5),d3
+		andi.w	#$00FF,d3
+		endif
+.regular:
 		move.w	d2,obj_x(a6)
 		move.w	d3,obj_y(a6)
 
@@ -808,12 +973,20 @@ obj_Fairy:
 		dc.w setVram_Mimi,0
 		dc.l objMap_Fifi
 		dc.w setVram_Fifi,0
+		;!@ New fairy for mouse ptr
+		dc.l objMap_Fifi
+		dc.w setVram_Pifi,0
 		align 2
 
 .fixd_pos:
-		dc.w $B8,$50
-		dc.w $B8+$24,$50
-		dc.w $B8+$48,$50
+		;!@
+		;dc.w $B8,$50
+		;dc.w $B8+$24,$50
+		;dc.w $B8+$48,$50
+		dc.w $B8,$40
+		dc.w $B8+$24,$40
+		dc.w $B8+$48,$40
+		dc.w $B8+$72,$40
 		align 2
 
 ; ====================================================================
@@ -868,7 +1041,8 @@ exgema_beats:
 	dc.w 214
 
 ArtList_Stuff:
-		dc.w 3
+		;!@ dc.w 3
+		dc.w 4
 		dc.l Art_FairyDodo
 		dc.w cell_num(setVram_Dodo)
 		dc.w cell_num($30)
@@ -878,31 +1052,71 @@ ArtList_Stuff:
 		dc.l Art_FairyFifi
 		dc.w cell_num(setVram_Fifi)
 		dc.w cell_num($30)
+		;!@
+		dc.l Art_FairyFifi
+		dc.w cell_num(setVram_Pifi)
+		dc.w cell_num($30)
+		align 2
 
 str_TesterTitle:
 		dc.b "GEMA Sound Test",0
 		align 2
+;!@
+str_TesterTitle2:
+		dc.b "Mega-Pico mode test",0
+		align 2
+
 str_TesterInfo:
 		dc.b "Seq# Blk# Indx",$0A
-		dc.b $0A,$0A,$0A,$0A
+		;!@ dc.b $0A,$0A,$0A,$0A
+		dc.b $0A,$0A
 		dc.b "Beats: "
 		dc.b 0
 		align 2
+str_TesterInfo2:
+		     ;01234567890123456789
+		dc.b "Pico Type/Ver: $    ",$0A
+			 ;01234567890123456789
+		dc.b "PenXY: $    ,     ",$0A
+		     ;01234567890123456789
+		dc.b "Book: $  ",$0A
+		     ;01234567890123456789
+		dc.b " Btn: $  "
+		dc.b 0
+		align 2
 str_Instruc:
+		if PICO
+		dc.b "PG  - Seq. Num#",$0A
+		dc.b "WO  - Seq. Blk#",$0A
+		dc.b "             ",$0A
+		dc.b "RED - STOP Seq.",$0A
+		dc.b "PEN - PLAY Seq."
+		dc.b 0
+		else
 		dc.b "LR - Seq. Num#   XY - Track index",$0A
 		dc.b "UD - Seq. Blk#",$0A
 		dc.b " A - STOP ALL",$0A
 		dc.b " B - STOP Seq.",$0A
 		dc.b " C - PLAY Seq.    Z - PLAY auto-fill"
 		dc.b 0
+		endif
 		align 2
 
 str_VmInfo:
 		dc.b "PSG",$0A
 		dc.b "FM",$0A
 		dc.b "PCM",$0A
-		dc.b "PWM"
+		dc.b "PWM",$0A
+		;!@
+		;if PICO
+		dc.b "PCO"
+		;endif
 		dc.b 0
+		align 2
+		
+;!@
+strL_NoteNull:
+		dc.b "---",0
 		align 2
 
 strL_NoteList:	dc.b "---",0

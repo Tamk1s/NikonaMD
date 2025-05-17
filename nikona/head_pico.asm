@@ -122,7 +122,8 @@ Pico_UnkInt:
 
 Pico_Entry:
 		move	#$2700,sr		; Disable interrputs
-		lea	($800019).l,a0
+		;!@ lea	($800019).l,a0
+		lea	(pico_security_addr).l,a0
 		move.l	($100),d0		; Activate PICO system by
 		movep.l	d0,(a0)			; writing this string to $800019 in odd writes
 		tst.w	(vdp_ctrl).l		; Test VDP to unlock Video
@@ -146,4 +147,11 @@ Pico_Entry:
 .palclear:
 		move.w	d6,(a6)
 		dbf	d7,.palclear
-		movem.l	($FF0000),d0-a6		; Clean registers using zeros from RAM
+		movem.l	($FF0000),d0-a6		; Clean registers using zeros from RAM		
+		
+;!@ Mega Pico mode
+		move.w	#$0100,(z80_bus).l		; Get Z80 bus
+		move.w	#$0100,(z80_reset).l		; Z80 reset
+.wait:
+		btst	#0,(z80_bus).l
+		bne.s	.wait

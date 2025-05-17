@@ -20,6 +20,38 @@ z80_bus 	equ	$A11100		; only use bit 0 (bit 8 as WORD)
 z80_reset	equ	$A11200		; WRITE only ($0000 reset/$0100 cancel)
 md_bank_sram	equ	$A130F1		; Make SRAM visible at $200000
 sys_tmss	equ	$A14000		; write "SEGA" here for ver > 0
+
+
+; !@ PICO addresses
+pico_START:			equ $800000
+pico_ver:			equ	$800001	;1 byte
+pico_btn:			equ	$800003	;~
+pico_penX_hi:		equ	$800005	;~
+pico_penX_lo:		equ	$800007	;~
+pico_penY_hi:		equ	$800009	;~
+pico_penY_lo:		equ	$80000B	;~
+pico_BookPage:		equ	$80000D	;~
+pico_copType:		equ	$80000F	;~
+pico_pcm_data:		equ	$800010	;1 word
+pico_pcm_ctrl:		equ	$800012	;~
+pico_port_1_data:	equ	$800015	;~
+pico_port_1_ctrl:	equ	$800017	;~
+pico_security_addr:	equ	$800019	;2 words
+
+; !@ Copera addresses
+copr_ymz263b_a0:	equ	$BFF801	;1 word
+copr_ymz263b_d0:	equ	$BFF803	;~
+copr_ymz263b_a1:	equ	$BFF805	;~
+copr_ymz263b_d1:	equ	$BFF807	;~
+
+copr_ymf262_a0:		equ	$BFF824
+copr_ymf262_d0:		equ	$BFF828
+copr_ymf262_a1:		equ	$BFF834
+
+copr_ym712b_a0:		equ	$BFF840
+
+
+;VDP/PSG
 vdp_data	equ	$C00000		; video data port
 vdp_ctrl	equ	$C00004		; video control port
 psg_ctrl	equ	$C00011		; PSG control
