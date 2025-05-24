@@ -127,17 +127,22 @@ RAM_SC0_OldOption	ds.w 1
 	; check ABC+Start "home" combo
 	if MCD|MARSCD
 		bsr	System_MdMcd_CheckHome
-		bcs.s	.exit_shell
+		bcs.w	.exit_shell
 	endif
 
-		lea	(Controller_1).w,a6
-		move.w	pad_press(a6),d7
+		;!@
+		;lea	(Controller_1).w,a6
+		;move.w	pad_press(a6),d7
+		;Check if ANY controllers have had Start button pressed
+		bsr		.joyHandler
+		move.w	(RAM_Glbl_joy_press).l,d7
 		btst	#bitJoyStart,d7
 		beq.s	.loop
+		
 		bsr	Video_FadeOut_Full
 		move.w	#7,(RAM_ScreenMode).w			; Go to Screen $07: GEMA tester
 		rts
-
+		
 ; ------------------------------------------------------
 ; Show framecounter and input
 ; ------------------------------------------------------
@@ -150,6 +155,93 @@ RAM_SC0_OldOption	ds.w 1
 		move.w	#DEF_PrintVramW|DEF_PrintPal,d2		; VRAM ascii location w/attr
 		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3	; VRAM output location and width size
 		bra	Video_PrintValW
+		
+; ------------------------------------------------------
+; !@ Joypad handler
+; Uses: a6,d7
+; ------------------------------------------------------		
+.joyHandler:
+	;Handle hold states
+	lea	(Controller_1).w,a6					;Put controller1_hold into RAM_Glbl_joy_hold (will be pico_pen in pico mode)
+	move.w	pad_hold(a6),d7
+	move.w	d7,(RAM_Glbl_joy_hold).l
+	lea	(Controller_2).w,a6					;Put controller2_hold into RAM_Glbl_joy2_hold (will be pico_ext in pico mode, P2 in Genesis mode)
+	move.w	pad_hold(a6),d7
+	move.w	d7,(RAM_Glbl_joy2_hold).l
+	lea	(Controller_3).w,a6					;Put controller3_hold into d7
+	move.w	pad_hold(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_hold).l		;OR (RAM_Glbl_joy2_hold,d7)
+	lea	(Controller_4).w,a6					;Ditto OR for controller4_hold
+	move.w	pad_hold(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_hold).l	
+	lea	(Controller_5).w,a6					;Ditto OR for controller5_hold
+	move.w	pad_hold(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_hold).l
+		
+	;Repeat everything above, but for controller_press
+	lea	(Controller_1).w,a6
+	move.w	pad_press(a6),d7
+	move.w	d7,(RAM_Glbl_joy_press).l
+	lea	(Controller_2).w,a6
+	move.w	pad_press(a6),d7
+	move.w	d7,(RAM_Glbl_joy2_press).l
+	lea	(Controller_3).w,a6
+	move.w	pad_press(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_press).l	
+	lea	(Controller_4).w,a6
+	move.w	pad_press(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_press).l	
+	lea	(Controller_5).w,a6
+	move.w	pad_press(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_press).l
+	
+	;Repeat everything above, but for controller_release
+	lea	(Controller_1).w,a6
+	move.w	pad_release(a6),d7
+	move.w	d7,(RAM_Glbl_joy_release).l
+	lea	(Controller_2).w,a6
+	move.w	pad_release(a6),d7
+	move.w	d7,(RAM_Glbl_joy2_release).l
+	lea	(Controller_3).w,a6
+	move.w	pad_release(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_release).l	
+	lea	(Controller_4).w,a6
+	move.w	pad_release(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_release).l	
+	lea	(Controller_5).w,a6
+	move.w	pad_release(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_release).l
+	
+	;Concatenate everything for final hold,press,release logical bitfields
+	lea		(RAM_Glbl_joy_hold).l,a6	;Load final joy_hold into a6
+	move.w	(RAM_Glbl_joy2_hold).l,d7	;Move joy2_hold value into d7
+	or.w	d7,(a6)						;OR d7,valueAt(a6)
+	;Repeat for joy_press
+	lea		(RAM_Glbl_joy_press).l,a6
+	move.w	(RAM_Glbl_joy2_press).l,d7
+	or.w	d7,(a6)	
+	;Repeat for joy_release
+	lea		(RAM_Glbl_joy_release).l,a6
+	move.w	(RAM_Glbl_joy2_release).l,d7
+	or.w	d7,(a6)
+	
+	;If Genesis mode, overwrite joy2_hold,_press,_release with just final bitfield. We dont care
+	if PICO == 0
+	move.w	(RAM_Glbl_joy_hold).l,d7	;Load final joy_hold into d7
+	move.w	(RAM_Glbl_joy2_hold).l,a6	;Load addr of joy2_hold
+	move.w	d7,(a6)						;Move joy_hold value into joy2_hold addr	
+	;Repeat for joy_press
+	move.w	(RAM_Glbl_joy_press).l,d7
+	move.w	(RAM_Glbl_joy2_press).l,a6
+	move.w	d7,(a6)
+	;Repeat for joy_release
+	move.w	(RAM_Glbl_joy_release).l,d7
+	move.w	(RAM_Glbl_joy2_release).l,a6
+	move.w	d7,(a6)
+	endif
+	rts
+
+; ; ------------------------------------------------------
 
 ; ------------------------------------------------------
 ; SCD ONLY

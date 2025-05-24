@@ -1,1 +1,3 @@
 tools/AS/*
+out/emu/copy.bat
+out/realhw/copy.bat

@@ -31,6 +31,8 @@ TAG_SRAMDATA		equ "SAVE"	; 4-letter savefile id
 ; is 3button(0) or 6button(1)
 ; ------------------------------------------------
 
+;!@
+JoyCount		equ	$05		;!@ Number of controller ports
 JoyID_Mouse		equ $03
 JoyID_MD		equ $0D
 JoyID_MS		equ $0F		; <-- Same ID for no controller
@@ -114,6 +116,7 @@ x			ds.w 1		; Mouse/Pen X speed
 y			ds.w 1		; Mouse/Pen Y speed
 page			ds.w 1		; PICO page
 ext			ds.w 1
+port	ds.l 1		;!@ MMIO addr for the controller port
 ; pad_len		ds.l 0
 			endstruct
 
@@ -152,7 +155,8 @@ ram			ds.b $40	; Object's own RAM
 ; ----------------------------------------------------------------
 
 			memory RAM_MdSystem
-RAM_InputData		ds.b pad_len*4		; Input data section
+;!@ RAM_InputData		ds.b pad_len*4		; Input data section
+RAM_InputData		ds.b pad_len*JoyCount	; Input data section
 RAM_SysRandVal		ds.l 1			; Random value
 RAM_SysRandom		ds.l 1			; Randomness seed
 RAM_SysLastBank		ds.l 1			; Last bank loaded
@@ -176,6 +180,7 @@ Controller_1		equ RAM_InputData
 Controller_2		equ RAM_InputData+pad_len
 Controller_3		equ RAM_InputData+pad_len*2
 Controller_4		equ RAM_InputData+pad_len*3
+Controller_5		equ RAM_InputData+pad_len*4	;!@
 
 ; ====================================================================
 ; --------------------------------------------------------
@@ -187,17 +192,33 @@ Controller_4		equ RAM_InputData+pad_len*3
 
 System_Init:
 		or.w	#$0700,sr
-	;!@ if PICO=0
+	;!@
+	if PICO == 0 | PICO_REV == 1
 		move.w	#$0100,(z80_bus).l	; Stop Z80
 .wait:
 		btst	#0,(z80_bus).l		; Wait Z80
 		bne.s	.wait
+	;!@
+	endif
+		
 		moveq	#%01000000,d0		; Init ports, TH=1
+	;!@ 
+	if PICO == 1
+		move.b	d0,(pico_port_1_ctrl).l
+	endif
+		
+	;!@ ???
+	if PICO == 0 | PICO_MODS == 1
 		move.b	d0,(sys_ctrl_1).l	; Controller 1
 		move.b	d0,(sys_ctrl_2).l	; Controller 2
 		move.b	d0,(sys_ctrl_3).l	; Modem
+	endif
+		
+	;!@
+	if PICO == 0 | PICO_REV == 1
 		move.w	#0,(z80_bus).l		; Enable Z80
-	;!@ endif
+	endif
+	
 		move.w	#$4EF9,d0		; JMP opcode
  		move.w	d0,(RAM_VBlankJump).w
 		move.w	d0,(RAM_HBlankJump).w
@@ -217,6 +238,9 @@ System_Init:
 		bsr	System_SramInit		; Init/Load SRAM
 	endif
 		andi.w	#$F8FF,sr
+		
+		;!@ Initialize controller port data addresses
+		jsr	(System_Input_Init).l
 		rts
 
 ; ====================================================================
@@ -397,6 +421,84 @@ Sound_Init:
 
 Sound_Update:
 		bra	gemaSendRam
+	
+;!@ 	
+; ====================================================================
+; --------------------------------------------------------
+; System_Input_Init
+; Initializes the MMIO ports to poll for controller data (Controller_1 to Controller_5) based on platform (Pico or not-Pico)
+;
+; Uses: a0-a1
+; --------------------------------------------------------
+
+System_Input_Init:	
+	if PICO == 1
+	;If Pico-based platforms, then:
+	;Controller_1 = Pico HARDWARE
+	;Controller_2 = Pico_ext port
+	
+	lea	(Controller_1).l,a0
+	lea	(pico_btn).l,a1
+	move.l	a1,pad_port(a0)
+	
+	lea	(Controller_2).l,a0
+	lea	(pico_port_1_data).l,a1
+	move.l	a1,pad_port(a0)
+	
+	if PICO_MODS == 1
+	;Pico mods installed, so:
+	;Controller_3 = Genesis_P1
+	;Controller_4 = Genesis_P2
+	;Controller_5 = Genesis_Ext
+	lea	(Controller_3).l,a0
+	lea	(sys_data_1).l,a1
+	move.l	a1,pad_port(a0)
+	
+	lea	(Controller_4).l,a0
+	lea	(sys_data_2).l,a1
+	move.l	a1,pad_port(a0)
+	
+	lea	(Controller_5).l,a0
+	lea	(sys_data_3).l,a1
+	move.l	a1,pad_port(a0)
+	else
+	;Pico mods NOT installed, so:
+	;Controller_3-Controller_5 = Pico_ext port
+	lea	(Controller_3).l,a0
+	lea	(pico_port_1_data).l,a1
+	move.l	a1,pad_port(a0)	
+	lea	(Controller_4).l,a0
+	move.l	a1,pad_port(a0)
+	lea	(Controller_5).l,a0
+	move.l	a1,pad_port(a0)
+	endif
+	
+	
+	else
+	;Genesis-based platforms, so:
+	;Controller_1 = Genesis_p1
+	;Controller_2 = Genesis_p2
+	;Controller_3-Controller_5= Genesis_ext
+	lea	(Controller_1).l,a0
+	lea	(sys_data_1).l,a1
+	move.l	a1,pad_port(a0)
+	
+	lea	(Controller_2).l,a0
+	lea	(sys_data_2).l,a1
+	move.l	a1,pad_port(a0)
+	
+	lea	(Controller_3).l,a0
+	lea	(sys_data_3).l,a1
+	move.l	a1,pad_port(a0)	
+	lea	(Controller_4).l,a0
+	move.l	a1,pad_port(a0)	
+	lea	(Controller_5).l,a0
+	move.l	a1,pad_port(a0)
+	endif
+	
+	rts
+; ====================================================================
+
 
 ; ====================================================================
 ; --------------------------------------------------------
@@ -426,10 +528,12 @@ Sound_Update:
 ; ----------------------------------------
 
 System_Input:
-	if PICO
+	if PICO == 1
 		lea	(RAM_InputData).w,a6
-		;!@ lea	($800003).l,a5
-		lea	(pico_btn).l,a5
+		;!@
+		move.l 	pad_port(a6),a5
+		;lea	($800003).l,a5
+		;lea	(pico_btn).l,a5
 		moveq	#0,d7
 		move.b	(a5),d7			; $800003: %P00BRLDU
 		eori.w	#$FF,d7
@@ -472,15 +576,47 @@ System_Input:
 .no_bit:
 		dbf	d5,.page_it
 		move.b	d7,pad_page(a6)
+	;!@ else
 	else
 
 	; ----------------------------------------
-	; Normal Genesis controls
-		lea	(RAM_InputData).w,a6	; a6 - Output
-		lea	(sys_data_1),a5		; a5 - BASE Genesis Input regs area
-		bsr.s	.this_one
-		adda	#2,a5
-		adda	#pad_len,a6
+	; !@ Normal Genesis controls (P1 port)
+	lea	(RAM_InputData),a6
+	move.l	pad_port(a6),a5
+	bsr.s	.this_one
+	endif
+	
+	adda	#pad_len,a6
+	move.l	pad_port(a6),a5
+	bsr.s	.this_one
+	
+	;if PICO_MODS == 1
+	adda	#pad_len,a6
+	move.l	pad_port(a6),a5
+	bsr.s	.this_one
+	
+	adda	#pad_len,a6
+	move.l	pad_port(a6),a5
+	bsr.s	.this_one
+	
+	adda	#pad_len,a6
+	move.l	pad_port(a6),a5
+	bsr.s	.this_one
+	;endif
+	rts
+	
+	; moveq	#JoyCount-1,d4		;!@
+	; lea		(RAM_InputData).w,a6	; a6 - Output
+		
+; .poll:
+	; ;!@ lea	(sys_data_1),a5		; a5 - BASE Genesis Input regs area
+	; movea.l	pad_port(a6),a5
+	; bsr.s	.this_one
+	; ;!@ adda	#2,a5
+	; adda	#pad_len,a6
+	; dbf		d4,.poll			;!@
+	; rts
+; ====================================================================
 
 ; ----------------------------------------
 ; Read port
@@ -682,7 +818,7 @@ System_Input:
 .oldpad:
 		move.b	d6,pad_ver(a6)
 		rts
-	endif
+	;!@ endif
 
 ; ====================================================================
 ; ----------------------------------------------------------------

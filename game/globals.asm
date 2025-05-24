@@ -36,3 +36,14 @@
 RAM_Glbl_Example_L	ds.l 1		; 1 long (4 bytes)
 RAM_Glbl_Example_W	ds.w 1		; 1 word (2 bytes)
 RAM_Glbl_Example_B	ds.b 1		; 1 byte
+					ds.b 1
+
+;!@ Stores hold,press,release state for ANY controller (c1-c5). This = Pico_pen OR (pico_ext AND Genesis p1-p2 AND modem)
+RAM_Glbl_joy_hold		ds.w 1
+RAM_Glbl_joy_press		ds.w 1
+RAM_Glbl_joy_release	ds.w 1
+
+;!@ Stores hold,press,release state for standard Genesis/expansions controllers (pico_ext, Genesis p1/p2 AND modem)
+RAM_Glbl_joy2_hold		ds.w 1
+RAM_Glbl_joy2_press		ds.w 1
+RAM_Glbl_joy2_release	ds.w 1

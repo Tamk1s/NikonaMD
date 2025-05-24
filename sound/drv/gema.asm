@@ -35,10 +35,8 @@ RAM_ZCdFlagD	equ RAM_ExReserved+$FF			; transferRom flag shared with Z80
 ; --------------------------------------------------------
 
 gemaInit:
-	;!@ if PICO
-		;; Pico driver init goes here
-
-	;else
+	;!@
+	if PICO == 0 | PICO_REV = 1
 		lea	(Z80_CODE).l,a0			; a0 - Z80 code (on $880000)
 		move.w	#(Z80_CODE_END-Z80_CODE)-1,d0	; d0 - Size
 		move.w	#$0100,(z80_bus).l		; Request Z80 stop
@@ -67,7 +65,7 @@ gemaInit:
 		nop
 		move.w	#$100,(z80_reset).l
 		move.w	#0,(z80_bus).l			; Start Z80
-	;endif
+	endif
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -92,12 +90,13 @@ gemaReset:
 ; ------------------------------------------------
 
 sndLockZ80:
-	;!@ if PICO=0
+	;!@
+	if PICO == 0 | PICO_REV = 1
 		move.w	#$0100,(z80_bus).l
 .wait:
 		btst	#0,(z80_bus).l
 		bne.s	.wait
-	;!@ endif
+	endif
 		rts
 
 ; ------------------------------------------------
@@ -107,9 +106,10 @@ sndLockZ80:
 ; ------------------------------------------------
 
 sndUnlockZ80:
-	;!@ if PICO=0
+	;!@
+	if PICO == 0 | PICO_REV = 1
 		move.w	#0,(z80_bus).l
-	;!@ endif
+	endif
 		rts
 
 ; ====================================================================
@@ -169,9 +169,10 @@ gemaSendRam:
 ; ------------------------------------------------
 
 sndReq_Enter:
-	;!@ if PICO=0
+	;!@
+	if PICO == 0 | PICO_REV = 1
 		move.w	#$0100,(z80_bus).l		; Request Z80 Stop
-	;!@ endif
+	endif
 		suba	#4,sp				; Extra jump return
 		movem.l	d6-d7/a5-a6,-(sp)		; Save these regs to the stack
 		move.w	sr,-(sp)			; and sr too
@@ -180,18 +181,20 @@ sndReq_Enter:
 		lea	(z80_cpu+zDrvFWrt).l,a5		; a5 - commZWrite
 		lea	(z80_cpu+zDrvFifo).l,a6		; a6 - fifo command list
 .wait:
-	;!@ if PICO=0
+	;!@
+	if PICO == 0 | PICO_REV = 1
 		btst	#0,(z80_bus).l			; Wait for Z80
 		bne.s	.wait
-	;!@ endif
+	endif
 		move.b	(a5),d6				; d6 - index fifo position
 		ext.w	d6				; extend to 16 bits
 		rts
 ; JUMP ONLY
 sndReq_Exit:
-	;!@ if PICO=0
+	;!@
+	if PICO == 0 | PICO_REV = 1
 		move.w	#0,(z80_bus).l
-	;!@ endifendif
+	endif
 		suba	#8+2+(4*4),sp
 		move.w	(sp)+,sr
 		movem.l	(sp)+,d6-d7/a5-a6		; And pop those back
@@ -247,7 +250,8 @@ sndReq_sbyte:
 ; --------------------------------------------------------
 
 gemaDmaPause:
-	;!@ if PICO=0
+	;!@
+	if PICO == 0 | PICO_REV = 1
 		move.l	d7,-(sp)
 		bsr	sndLockZ80
 		move.b	#1,(z80_cpu+zDrvRomBlk).l	; Set ROM-busy flag
@@ -255,7 +259,7 @@ gemaDmaPause:
 		move.w	#96,d7				; Small delay
 		dbf	d7,*
 		move.l	(sp)+,d7
-	;!@ endif
+	endif
 		rts
 
 ; --------------------------------------------------------
@@ -267,7 +271,8 @@ gemaDmaPause:
 ; --------------------------------------------------------
 
 gemaDmaResume:
-	;!@ if PICO=0
+	;!@
+	if PICO == 0 | PICO_REV = 1
 		move.l	d7,-(sp)
 		bsr	sndLockZ80
 		move.b	#0,(z80_cpu+zDrvRomBlk).l	; Clear ROM-busy flag
@@ -275,7 +280,7 @@ gemaDmaResume:
 		move.w	#96,d7				; Small delay
 		dbf	d7,*
 		move.l	(sp)+,d7
-	;!@ endif
+	endif
 		rts
 
 ; --------------------------------------------------------

@@ -10,7 +10,7 @@
 ; ------------------------------------------------------
 
 VIEW_GEMAINFO		equ True	; ** Using this causes loss of DAC quality **
-VIEW_FAIRY		equ True		; Show status Dodo/Mifi/Fifi
+VIEW_FAIRY		equ True		; Show status Dodo/Mifi/Fifi/Pifi
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -105,7 +105,7 @@ sizeof_thisbuff		ds.l 0
 		bsr	Video_PrintW
 		
 	;!@ Subtitle
-	if PICO
+	if PICO == 1 & PICO_REV == 1
 		lea	str_TesterTitle2(pc),a0
 		moveq	#10,d0
 		moveq	#4,d1
@@ -123,6 +123,7 @@ sizeof_thisbuff		ds.l 0
 		moveq	#7,d1
 		move.w	#DEF_PrintVram|$4000,d2
 		bsr	Video_Print
+		
 		lea	str_Instruc(pc),a0
 		moveq	#2,d0
 		;!@ moveq	#21,d1
@@ -148,24 +149,25 @@ sizeof_thisbuff		ds.l 0
 ; ------------------------------------------------------
 
 .loop:
-		bsr	System_Render
+		bsr	System_Render		
 ; 		bsr	.show_cursor
 		bsr	.gema_view
 		bsr	Objects_Run
 		bsr	Video_BuildSprites
 
 	; NEW controls
-		lea	(Controller_1).w,a6
+		bsr	.joyHandler		;!@		
+		;!@ lea	(Controller_1).w,a6
 	; LEFT/RIGHT
-		move.w	pad_press(a6),d7
+		;If any genesis controller has pressed start, then exit screen
+		;!@ move.w	pad_press(a6),d7
+		move.w	(RAM_Glbl_joy2_press).l,d7	;!@
 		move.w	d7,d6
-		;!@
-		if PICO
-			nop
-		else
-			;andi.w	#JoyStart,d6
-			;bne	.exit_this
-		endif
+		andi.w	#JoyStart,d6
+		bne	.exit_this
+		
+		;!@ Check if any controller has pressed left/right
+		move.w	(RAM_Glbl_joy_press).l,d7	;!@
 		andi.w	#JoyLeft+JoyRight,d7
 		beq.s	.lr_seq
 		moveq	#1,d0
@@ -180,7 +182,9 @@ sizeof_thisbuff		ds.l 0
 .lr_seq:
 
 	; UP/DOWN
-		move.w	pad_press(a6),d7
+		;!@ move.w	pad_press(a6),d7
+		;Check if any controller has pressed Up/Down
+		move.w	(RAM_Glbl_joy_press).l,d7	;!@
 		andi.w	#JoyUp+JoyDown,d7
 		beq.s	.ud_seq
 		moveq	#1,d0
@@ -196,7 +200,9 @@ sizeof_thisbuff		ds.l 0
 .ud_seq:
 
 	; X/Y
-		move.w	pad_press(a6),d7
+		;!@ move.w	pad_press(a6),d7
+		; Check if any Genesis controller has pressed X/Y
+		move.w	(RAM_Glbl_joy2_press).l,d7	;!@
 		andi.w	#JoyX+JoyY,d7
 		beq.s	.xy_seq
 		moveq	#1,d0
@@ -210,21 +216,29 @@ sizeof_thisbuff		ds.l 0
 		bsr	.show_me
 .xy_seq:
 
-	; C BUTTON		
-		move.w	pad_press(a6),d7		
-		;!@ Now start button
-		if PICO
+	; C BUTTON / Start (Pico)
+		; 
+		;!@ If PICO mode, check if pico pen has pressed start (pen button down)
+		if PICO == 1
+		lea		(Controller_1).w,a6
+		move.w	pad_press(a6),d7	;!@
 		andi.w	#JoyStart,d7
-		else
+		beq.s	.cz_gen_check
+		move.w	(RAM_GemaIndx).w,d2
+		bra.s	.not_auto
+		endif		
+		
+.cz_gen_check:
+		;Check if any Genesis controllers have pressed C/Z
+		;!@ move.w	pad_press(a6),d7
+		move.w	(RAM_Glbl_joy2_press).l,d7
 		andi.w	#JoyC+JoyZ,d7
-		endif
 		beq.s	.c_press
 		move.w	(RAM_GemaIndx).w,d2
 		andi.w	#JoyZ,d7
 		beq.s	.not_auto
 		moveq	#-1,d2
 .not_auto:
-
 		move.w	(RAM_GemaSeq).w,d0
 		move.w	(RAM_GemaBlk).w,d1
 		bsr	gemaPlaySeq
@@ -238,22 +252,21 @@ sizeof_thisbuff		ds.l 0
 		bsr	gemaSetBeats
 .c_press:
 	; B BUTTON
-		move.w	pad_press(a6),d7
+		;!@ move.w	pad_press(a6),d7
+		;If any controller has pressed B, then Stop Sequence
+		move.w	(RAM_Glbl_joy_press).l,d7
 		andi.w	#JoyB,d7
 		beq.s	.b_press
 		move.w	(RAM_GemaSeq).w,d0
 		move.w	(RAM_GemaIndx).w,d1
 		bsr	gemaStopSeq
 .b_press:
-		;!@ Disabled
-		if PICO
-		nop
-		else				
-		move.w	pad_press(a6),d7
+		;!@ move.w	pad_press(a6),d7
+		;If any Genesis controller has pressed A, then StopAll
+		move.w	(RAM_Glbl_joy2_press).l,d7
 		andi.w	#JoyA,d7
 		beq.s	.a_press
 		bsr	gemaStopAll
-		endif
 .a_press:
 ; 		move.w	pad_hold(a6),d7
 ; 		andi.w	#JoyA+JoyB+JoyC,d7
@@ -284,7 +297,7 @@ sizeof_thisbuff		ds.l 0
 ; 		bpl.s	.n_cbtn
 
 ; .n_cbtn:
-		bsr	.show_me2	;!@
+		bsr	.show_me2	;!@ Update pico-hardware debug
 		bra	.loop
 
 .exit_this:
@@ -345,21 +358,27 @@ sizeof_thisbuff		ds.l 0
 		bsr	Video_PrintValW
 		adda	#2,a0
 		addq.w	#5,d0
-		bra	Video_PrintValW
+		bsr	Video_PrintValW
+		rts 
 		
 .show_me2:
 	;!@ New code for Pico PenX/Y, btn, version/type
-	if PICO
+	if PICO == 1
 		;Show Pico headers
 		lea	str_TesterInfo2(pc),a0
-		
 		if VIEW_FAIRY
 		moveq	#6,d0
 		else
 		moveq	#13,d0
-		endif
-		
+		endif		
 		moveq	#$0B,d1
+		move.w	#DEF_PrintVram|$4000,d2
+		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		bsr	Video_Print
+		
+		lea	str_TesterInfo3(pc),a0
+		moveq	#2,d0
+		moveq	#$0E,d1
 		move.w	#DEF_PrintVram|$4000,d2
 		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
 		bsr	Video_Print
@@ -392,7 +411,7 @@ sizeof_thisbuff		ds.l 0
 		move.l	#1,a1
 		
 		;GetPen
-		;lea	(Controller_1).w,a6
+		lea		(Controller_1).w,a6
 		move.w	pad_x(a6),d0
 		move.w	d0,(a0)		
 		if VIEW_FAIRY
@@ -438,23 +457,64 @@ sizeof_thisbuff		ds.l 0
 		bsr	Video_PrintVal
 		
 		
-		;Btn
-		lea	(RAM_ScratchW).w,a0
-		move.l	#1,a1
+		;Handle buttons
+		;Btn		
+		move.l	#1,a1			;Word type button holds
+		moveq	#14,d1			;ypos
+		lea	(RAM_ScratchW).w,a0	;Value memory addr		
 		
-		;GetBtn
-		;lea	(Controller_1).w,a6
+		;Get pen button
+		lea	(Controller_1).w,a6	;Lead c1 addr into a5
+		move.w	pad_hold(a6),d0	;Move pad_hold of controller into d0
+		move.w	d0,(a0)			;Move d0 pad_hold value into a0 addr
+		moveq	#08,d0			;Set xpos
+		bsr	Video_PrintVal		;Print value
+		
+		;GetBtn, controller 2
+		lea	(Controller_2).w,a6
 		move.w	pad_hold(a6),d0
 		move.w	d0,(a0)
-		if VIEW_FAIRY
 		moveq	#13,d0
-		else
-		moveq	#20,d0
-		endif
-		moveq	#14,d1
 		bsr	Video_PrintVal
+		
+		;Handle PICO_MODS expansion Genesis controllers
+		if PICO_MODS == 1
+		;GetBtn
+		lea	(Controller_3).w,a6
+		move.w	pad_hold(a6),d0
+		move.w	d0,(a0)
+		moveq	#18,d0
+		bsr	Video_PrintVal
+		
+		;GetBtn
+		lea	(Controller_4).w,a6
+		move.w	pad_hold(a6),d0
+		move.w	d0,(a0)
+		moveq	#23,d0
+		bsr	Video_PrintVal
+		
+		lea	(Controller_5).w,a6
+		move.w	pad_hold(a6),d0
+		move.w	d0,(a0)
+		moveq	#28,d0
+		bsr	Video_PrintVal
+		endif
+		
+		;Display final value (final result from all controllers)
+		move.w	(RAM_Glbl_joy_hold).l,d0	;Move final hold value into d0
+		move.w	d0,(a0)						;Move d0 into a0 addr
+		
+		;Determine proper xpos based on flags
+		if PICO_MODS == 1
+		moveq	#33,d0	;If PICO_MODS, set xpos to 6th slot
+		else
+		moveq	#18,d0	;If not, set xpos to 3rd slot
+		endif
+		move.w	#DEF_PrintVram|$4000,d2		;Green font
+		bsr		Video_PrintVal
 	endif
 		rts
+		
 ; ; ------------------------------------------------------
 ;
 ; .jump_list:
@@ -840,6 +900,91 @@ sizeof_thisbuff		ds.l 0
 		adda	#4,a3
 		dbf	d7,.show_table
 		rts
+		
+; ------------------------------------------------------
+; !@ Joypad handler
+; Uses: a6,d7
+; ------------------------------------------------------		
+.joyHandler:
+	;Handle hold states
+	lea	(Controller_1).w,a6					;Put controller1_hold into RAM_Glbl_joy_hold (will be pico_pen in pico mode)
+	move.w	pad_hold(a6),d7
+	move.w	d7,(RAM_Glbl_joy_hold).l
+	lea	(Controller_2).w,a6					;Put controller2_hold into RAM_Glbl_joy2_hold (will be pico_ext in pico mode, P2 in Genesis mode)
+	move.w	pad_hold(a6),d7
+	move.w	d7,(RAM_Glbl_joy2_hold).l
+	lea	(Controller_3).w,a6					;Put controller3_hold into d7
+	move.w	pad_hold(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_hold).l		;OR (RAM_Glbl_joy2_hold,d7)
+	lea	(Controller_4).w,a6					;Ditto OR for controller4_hold
+	move.w	pad_hold(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_hold).l	
+	lea	(Controller_5).w,a6					;Ditto OR for controller5_hold
+	move.w	pad_hold(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_hold).l
+		
+	;Repeat everything above, but for controller_press
+	lea	(Controller_1).w,a6
+	move.w	pad_press(a6),d7
+	move.w	d7,(RAM_Glbl_joy_press).l
+	lea	(Controller_2).w,a6
+	move.w	pad_press(a6),d7
+	move.w	d7,(RAM_Glbl_joy2_press).l
+	lea	(Controller_3).w,a6
+	move.w	pad_press(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_press).l	
+	lea	(Controller_4).w,a6
+	move.w	pad_press(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_press).l	
+	lea	(Controller_5).w,a6
+	move.w	pad_press(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_press).l
+	
+	;Repeat everything above, but for controller_release
+	lea	(Controller_1).w,a6
+	move.w	pad_release(a6),d7
+	move.w	d7,(RAM_Glbl_joy_release).l
+	lea	(Controller_2).w,a6
+	move.w	pad_release(a6),d7
+	move.w	d7,(RAM_Glbl_joy2_release).l
+	lea	(Controller_3).w,a6
+	move.w	pad_release(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_release).l	
+	lea	(Controller_4).w,a6
+	move.w	pad_release(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_release).l	
+	lea	(Controller_5).w,a6
+	move.w	pad_release(a6),d7
+	or.w	d7,(RAM_Glbl_joy2_release).l
+	
+	;Concatenate everything for final hold,press,release logical bitfields
+	lea		(RAM_Glbl_joy_hold).l,a6	;Load final joy_hold into a6
+	move.w	(RAM_Glbl_joy2_hold).l,d7	;Move joy2_hold value into d7
+	or.w	d7,(a6)						;OR d7,valueAt(a6)
+	;Repeat for joy_press
+	lea		(RAM_Glbl_joy_press).l,a6
+	move.w	(RAM_Glbl_joy2_press).l,d7
+	or.w	d7,(a6)	
+	;Repeat for joy_release
+	lea		(RAM_Glbl_joy_release).l,a6
+	move.w	(RAM_Glbl_joy2_release).l,d7
+	or.w	d7,(a6)
+	
+	;If Genesis mode, overwrite joy2_hold,_press,_release with just final bitfield. We dont care
+	if PICO == 0
+	move.w	(RAM_Glbl_joy_hold).l,d7	;Load final joy_hold into d7
+	lea		(RAM_Glbl_joy2_hold).w,a6	;Load addr of joy2_hold
+	move.w	d7,(a6)						;Move joy_hold value into joy2_hold addr	
+	;Repeat for joy_press
+	move.w	(RAM_Glbl_joy_press).l,d7
+	lea		(RAM_Glbl_joy2_press).l,a6
+	move.w	d7,(a6)
+	;Repeat for joy_release
+	move.w	(RAM_Glbl_joy_release).l,d7
+	lea		(RAM_Glbl_joy2_release).l,a6
+	move.w	d7,(a6)
+	endif
+	rts
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -1079,18 +1224,24 @@ str_TesterInfo2:
 			 ;01234567890123456789
 		dc.b "PenXY: $    ,     ",$0A
 		     ;01234567890123456789
-		dc.b "Book: $  ",$0A
-		     ;01234567890123456789
-		dc.b " Btn: $  "
+		dc.b "Book: $  "		
 		dc.b 0
 		align 2
+str_TesterInfo3:
+		if PICO_MODS == 1
+		dc.b "Btn: $    ,    ,    ,    ,    ,    "
+		else
+		dc.b "Btn: $    ,    ,    "
+		dc.b 0
+		endif
+		align 2
 str_Instruc:
-		if PICO
-		dc.b "PG  - Seq. Num#",$0A
-		dc.b "WO  - Seq. Blk#",$0A
-		dc.b "             ",$0A
-		dc.b "RED - STOP Seq.",$0A
-		dc.b "PEN - PLAY Seq."
+		if PICO == 1
+		dc.b "PG/LR - Seq. Num#   XY - Track index",$0A
+		dc.b "WO/UD - Seq. Blk#",$0A
+		dc.b "    A - STOP ALL",$0A
+		dc.b "RED/B - STOP Seq.",$0A
+		dc.b "PEN/C - PLAY Seq. Z - PLAY auto-fill"
 		dc.b 0
 		else
 		dc.b "LR - Seq. Num#   XY - Track index",$0A

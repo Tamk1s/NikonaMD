@@ -1,0 +1,26 @@
+Pico modes:
+
+tmr
+
+t=Pico type
+0=Pico
+1=Copera
+
+m=Mods installed
+0=no
+1=yes (P1, P2, modem, reset, stereo FM/DAC, RGB, LED)
+
+r=Revision
+0=Genesis Model 3 VA1 (no Z80, no I/O, no YM2612)
+1=Genesis Model 3 VA2 (has Z80, I/O, & YM2612)
+
+tmr
+000 = VA1 pico
+001 = VA2 Pico without mods (has Z80, I/O, YM2612)
+010 = VA1 pico with mods (stereo, but no Z80, no I/O, no FM/DAC)
+011 = VA2 Pico with mods (Sega Mega Pico)
+
+100 = Regular Copera
+101 = invalid?
+110 = Copera with mods (?)
+111 = Invalid?

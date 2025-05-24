@@ -67,7 +67,17 @@
 		dc.l Pico_Error
 		dc.l Pico_Error
 		dc.l Pico_Error
-		dc.b HTAG_SYS_PICO;"SEGA PICO       "
+		
+	;!@ Pico systype (Copera, Pico, or Mega Pico)
+	if COPERA == 1
+		dc.b HTAG_SYS_COPERA;"SEGA COPERA     "
+	else
+		if PICO_REV == 1
+			dc.b HTAG_SYS_MEGAPICO;"SEGA MEGA PICO  "
+		else							   
+			dc.b HTAG_SYS_PICO;"SEGA PICO       "
+		endif
+	endif	
 		dc.b HTAG_DATEINFO;"(C)GF64 2024.???"
 		dc.b HTAG_NDM_PICO;"Nikona PICO                                     "
 		dc.b HTAG_NOV_PICO;"Nikona PICO                                     "
@@ -149,9 +159,14 @@ Pico_Entry:
 		dbf	d7,.palclear
 		movem.l	($FF0000),d0-a6		; Clean registers using zeros from RAM		
 		
-;!@ Mega Pico mode
+		;!@ Mega Pico mode
+		if PICO_REV == 1
 		move.w	#$0100,(z80_bus).l		; Get Z80 bus
 		move.w	#$0100,(z80_reset).l		; Z80 reset
+		endif
+
 .wait:
+		if PICO_REV == 1
 		btst	#0,(z80_bus).l
 		bne.s	.wait
+		endif

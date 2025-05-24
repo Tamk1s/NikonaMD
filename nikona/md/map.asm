@@ -36,7 +36,7 @@ pico_pcm_data:		equ	$800010	;1 word
 pico_pcm_ctrl:		equ	$800012	;~
 pico_port_1_data:	equ	$800015	;~
 pico_port_1_ctrl:	equ	$800017	;~
-pico_security_addr:	equ	$800019	;2 words
+pico_security_addr:	equ	$800019	;2 odd words
 
 ; !@ Copera addresses
 copr_ymz263b_a0:	equ	$BFF801	;1 word
