@@ -23,6 +23,7 @@ sys_tmss	equ	$A14000		; write "SEGA" here for ver > 0
 
 
 ; !@ PICO addresses
+; !@ Also see and add support for the following secret quirks: https://qufb.gitlab.io/writeups/pico
 pico_START:			equ $800000
 pico_ver:			equ	$800001	;1 byte
 pico_btn:			equ	$800003	;~

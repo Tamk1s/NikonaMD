@@ -44,7 +44,7 @@ for x in range(0,8):
 	source_file = PAGEDIR + PAGENAME + filename
   
 	destination_file = REALHWDIR
-	if EMUTYPE == 1: destination_file = EMUDIR
+	if EMUTYPE == 0: destination_file = EMUDIR
 	destination_file = destination_file + ROMNAME + "_" + filename
     
 	# print("source/dest: " + source_file + "," + destination_file)

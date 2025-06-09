@@ -46,6 +46,7 @@ RAM_GemaCache_FM3	ds.l 1
 RAM_GemaCache_FM6	ds.l 1
 RAM_GemaCache_PCM	ds.l 8
 RAM_GemaCache_PWM	ds.l 8
+RAM_GemaCache_PCO	ds.l 1	;!@ Pico ADPCM
 RAM_CurrPick		ds.w 1
 RAM_LastPick		ds.w 1
 RAM_GemaSeq		ds.w 1		; ''
@@ -733,52 +734,69 @@ sizeof_thisbuff		ds.l 0
 
 	if VIEW_GEMAINFO
 		bsr	sndLockZ80
+
 		lea	(z80_cpu+tblPSG),a0
 		lea	(RAM_GemaCache_PSG),a1
-		moveq	#3-1,d7
+		moveq	#3-1,d7					;PSG d7=2
 		bsr	.copy_me
+		
 		lea	(z80_cpu+tblPSGN),a0
 		lea	(RAM_GemaCache_PSGN),a1
-		moveq	#1-1,d7
+		moveq	#1-1,d7					;PSG Noise d7=0
 		bsr	.copy_me
+		
 		lea	(z80_cpu+tblFM),a0
 		lea	(RAM_GemaCache_FM),a1
-		moveq	#6-1,d7
+		moveq	#6-1,d7					;FM Reg d7=5
 		bsr	.copy_me
+		
 		lea	(z80_cpu+tblPCM),a0
 		lea	(RAM_GemaCache_PCM),a1
-		moveq	#8-1,d7
+		moveq	#8-1,d7					;PCM Reg d7=7
 		bsr	.copy_me
+		
 		lea	(z80_cpu+tblPWM),a0
 		lea	(RAM_GemaCache_PWM),a1
-		moveq	#8-1,d7
+		moveq	#8-1,d7					;PWM Reg d7=7
 		bsr	.copy_me
-		moveq	#0,d7
+		
+		;!@ Pico ADPCM
+		lea	(z80_cpu+tblPCO),a0
+		lea	(RAM_GemaCache_PCO),a1
+		moveq	#1-1,d7					;PCO Reg d7=0 (1) channels
+		bsr	.copy_me
+		
+		moveq	#0,d7					;FM3 Reg d7=0
 		move.b	(z80_cpu+fmSpecial),d7
 		move.w	d7,(RAM_Copy_fmSpecial).w
-		move.b	(z80_cpu+8),d7
+		move.b	(z80_cpu+8),d7			;DAC Reg d7=0/1?
 		move.w	d7,(RAM_Copy_HasDac).w
+				
 		bsr	sndUnlockZ80
 	endif
 
 	if VIEW_GEMAINFO
 		move.w	#DEF_PrintVram|DEF_PrintPal,d2
 		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		
 		lea	(RAM_GemaCache_PSG),a3
 		moveq	#7,d0
 		moveq	#SET_SNDVIEWY,d1
 		moveq	#3-1,d7
 		bsr	.show_table
+		
 		lea	(RAM_GemaCache_PSGN),a3
 		moveq	#7+12,d0
 		moveq	#SET_SNDVIEWY,d1
 		moveq	#1-1,d7
 		bsr	.show_table
+		
 		lea	(RAM_GemaCache_FM),a3
 		moveq	#7,d0
 		moveq	#SET_SNDVIEWY+1,d1
 		moveq	#5-1,d7
 		bsr	.show_table_fm
+		
 		lea	(RAM_GemaCache_FM3),a3
 		moveq	#7+16,d0
 		moveq	#SET_SNDVIEWY+1,d1
@@ -809,6 +827,7 @@ sizeof_thisbuff		ds.l 0
 		lea	(RAM_GemaCache_FM6),a3
 		moveq	#1-1,d7
 		bsr	.show_table_fm
+
 .c_sampl:
 		lea	(RAM_GemaCache_PCM),a3
 		moveq	#7,d0
@@ -821,14 +840,21 @@ sizeof_thisbuff		ds.l 0
 		moveq	#8-1,d7
 		bsr	.show_table
 		
+		;!@ Pico ADPCM Channel
+		lea	(RAM_GemaCache_PCO),a3
+		moveq	#7,d0
+		moveq	#SET_SNDVIEWY+4,d1
+		moveq	#1-1,d7					;1 PCO channel
+		bsr	.show_table
+		
 		;!@ PCM_Pico code
 		;if PICO
-		lea		strL_NoteNull(pc),a0
-		moveq	#$07,d0
-		moveq	#SET_SNDVIEWY+$04,d1
-		move.w	#DEF_PrintVram|DEF_PrintPal,d2
-		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
-		bsr		Video_Print
+		; lea		strL_NoteNull(pc),a0
+		; moveq	#$07,d0
+		; moveq	#SET_SNDVIEWY+$04,d1
+		; move.w	#DEF_PrintVram|DEF_PrintPal,d2
+		; move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		; bsr		Video_Print
 		;endif
 	endif
 
@@ -836,6 +862,8 @@ sizeof_thisbuff		ds.l 0
 
 ; ----------------------------------------------
 
+; Copies some buffer data
+; Inputs: a0, a1, d7
 .copy_me:
 		moveq	#0,d1
 ; 		bsr	sndLockZ80
@@ -1266,11 +1294,12 @@ str_VmInfo:
 		align 2
 		
 ;!@
-strL_NoteNull:
-		dc.b "---",0
-		align 2
+; strL_NoteNull:
+		; dc.b "---",0
+		; align 2
 
-strL_NoteList:	dc.b "---",0
+strL_NoteList:
+		dc.b "---",0
 		dc.b "C-0",0,"C#0",0,"D-0",0,"D#0",0,"E-0",0,"F-0",0,"F#0",0,"G-0",0,"G#0",0,"A-0",0,"A#0",0,"B-0",0
 		dc.b "C-1",0,"C#1",0,"D-1",0,"D#1",0,"E-1",0,"F-1",0,"F#1",0,"G-1",0,"G#1",0,"A-1",0,"A#1",0,"B-1",0
 		dc.b "C-2",0,"C#2",0,"D-2",0,"D#2",0,"E-2",0,"F-2",0,"F#2",0,"G-2",0,"G#2",0,"A-2",0,"A#2",0,"B-2",0
@@ -1287,10 +1316,18 @@ strL_NoteList:	dc.b "---",0
 		dc.b "?-D",0,"?-D",0,"?-D",0,"?-D",0,"?-D",0,"?-D",0,"?-D",0,"?-D",0,"?-D",0,"?-D",0,"?-D",0,"?-D",0
 		dc.b "?-E",0,"?-E",0,"?-E",0,"?-E",0,"?-E",0,"?-E",0,"?-E",0,"?-E",0,"?-E",0,"?-E",0,"?-E",0,"?-E",0
 		dc.b "?-F",0,"?-F",0,"?-F",0,"?-F",0,"?-F",0,"?-F",0,"?-F",0,"?-F",0,"?-F",0,"?-F",0,"?-F",0,"?-F",0
-strL_FmOnly:	dc.b "---",0
+		align 2
+strL_FmOnly:
+		dc.b "---",0
 		dc.b "C- ",0,"C# ",0,"D- ",0,"D# ",0,"E- ",0,"F- ",0,"F# ",0,"G- ",0,"G# ",0,"A- ",0,"A# ",0,"B- ",0
 		dc.b "?- ",0,"?- ",0,"?- ",0
-strL_LazyVal:	dc.b "0",0,"1",0,"2",0,"3",0,"4",0,"5",0,"6",0,"7",0,"8",0,"9",0
-
-str_Speci:	dc.b "FM3",0
-str_Sampl:	dc.b "DAC",0
+		align 2
+strL_LazyVal:
+		dc.b "0",0,"1",0,"2",0,"3",0,"4",0,"5",0,"6",0,"7",0,"8",0,"9",0
+		align 2
+str_Speci:
+		dc.b "FM3",0
+		align 2
+str_Sampl:
+		dc.b "DAC",0
+		align 2

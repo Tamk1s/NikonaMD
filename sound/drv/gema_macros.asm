@@ -3,7 +3,7 @@
 ; GEMA MACROS
 ;
 ; Variables used:
-; MCD, MARS, MARSCD
+; PICO, MCD, MARS, MARSCD !@
 ; ------------------------------------------------------------
 
 ; ----------------------------------------------------
@@ -223,6 +223,17 @@ gInsPwm	macro pitch,start,flags
 	dc.b ((start>>8)&$FF),start&$FF,0,0
  else
 	dc.b $00,$00,$00,$00
+	dc.b $00,$00,$00,$00
+ endif
+	endm
+	
+;!@ TODO
+gInsPco	macro pitch,start,flags
+ if PICO == 1
+	dc.b $F0|flags,pitch,((start>>16)&$FF),((start>>8)&$FF)
+	dc.b start&$FF,0,0,0
+ else
+ 	dc.b $00,$00,$00,$00
 	dc.b $00,$00,$00,$00
  endif
 	endm

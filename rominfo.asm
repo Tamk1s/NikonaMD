@@ -18,7 +18,7 @@ HTAG_SYS_MARS	equ "SEGA 32X        "
 HTAG_SYS_MARSCD	equ "SEGA GENESIS    "	; Same as cartridge
 ;!@ Pico variants
 HTAG_SYS_PICO	equ "SEGA PICO       "
-HTAG_SYS_MEGAPICO	equ "SEGA MEGA PICO  "
+HTAG_SYS_MEGAPICO	equ "SEGA PICO       "
 HTAG_SYS_COPERA	equ "SEGA COPERA     "
 
 ; --------------------------------------------------------

@@ -3,6 +3,23 @@ CLS
 set AS_MSGPATH=tools/AS
 set USEANSI=n
 
+echo *** Delete old ROMS ***
+del /q "out\emu\*.lst"
+del /q "out\emu\*.bin"
+del /q "out\emu\*.32x"
+del /q "out\emu\*.bin"
+del /q "out\emu\*.iso"
+del /q "out\emu\*.cue"
+del /q "out\emu\*.png"
+
+del /q "out\realhw\*.lst"
+del /q "out\realhw\*.bin"
+del /q "out\realhw\*.32x"
+del /q "out\realhw\*.bin"
+del /q "out\realhw\*.iso"
+del /q "out\realhw\*.cue"
+del /q "out\realhw\*.png"
+
 echo *** Building EMULATOR-ONLY ROMs ***
 echo * MD
 "tools/AS/asw" main.asm -i "%cd%" -olist "out/emu/rom_emu_md.lst" -q -xx -A -L -D MCD=0,MARS=0,MARSCD=0,PICO=0,COPERA=0,PICO_MODS=0,PICO_REV=0,EMU=1

@@ -18,7 +18,8 @@ MAX_BUFFNTRY	equ 4*2		; !! nikona_BuffList buffer entry size **HARDCODED
 MAX_SLOTS	equ 3		; !! Number of track buffers
 MAX_ZCMND	equ 20h		; !! Size of command array ** 1-bit SIZES ONLY ** (68k uses this label too)
 MAX_TBLSIZE	equ 12h		; Maximum size for chip table arrays
-MAX_TRKINDX	equ 26		; Max channel indexes per buffer: 4PSG+6FM+8PCM+8PWM
+;!@ MAX_TRKINDX	equ 26		; Max channel indexes per buffer: 4PSG+6FM+8PCM+8PWM
+MAX_TRKINDX	equ 27		; Max channel indexes per buffer: 4PSG+6FM+8PCM+8PWM+1PCO
 
 ; --------------------------------------------------------
 ; Structs
@@ -115,6 +116,20 @@ ARP		equ 44
 MVOL		equ 48
 EFFV		equ 52
 PTMR		equ 56
+
+; --------------------------------------------------------
+; Constants
+; --------------------------------------------------------
+
+;Chip types channelIDs
+cht_PSG			equ	080h	;PSG
+cht_PSGN		equ	090h	;PSG Noise
+cht_FM			equ	0A0h	;FM 1-2,4-5
+cht_FM3sp		equ	0B0h	;FM3
+cht_FM6DAC		equ	0C0h	;FM6/DAC
+cht_PCM			equ	0D0h	;Sega CD  PCM
+cht_PWM			equ	0E0h	;Sega 32x PWM
+cht_PCO			equ	0F0h	;SegaPico PCO
 
 ; ====================================================================
 ; --------------------------------------------------------
@@ -1277,8 +1292,14 @@ set_chips:
 		rst	20h
 		ld	iy,tblPCM		; SEGA CD PCM
 		call	dtbl_multi
+		
 		ld	iy,tblPWM		; 32X PWM
-		jp	dtbl_multi
+		;!@ jp	dtbl_multi
+		call	dtbl_multi
+		
+		;!@
+		ld	iy,tblPCO		; Pico PCO
+		jp		dtbl_singl
 
 ; ----------------------------------------
 ; Read current track
@@ -1467,7 +1488,7 @@ tblbuff_read:
 		jr	.srch_lloop
 
 ; --------------------------------
-; PSGN/FM3/FM6
+; PSGN/FM3/FM6/PCO
 ; --------------------------------
 
 .singl_link:
@@ -1570,7 +1591,7 @@ tblbuff_read:
 		jr	.next_prio
 
 ; ----------------------------------------
-; Single slot PSGN/FM3/FM6
+; Single slot PSGN/FM3/FM6 and PCO
 ;
 ; c - priority
 ; e - chip
@@ -1707,21 +1728,25 @@ dtbl_singl:
 		ld	b,0
 		ld	c,(iy+ztbl_Chip)
 		and	11110000b
-		cp	80h
+		cp	cht_PSG
 		jr	z,.siln_psg
-		cp	90h
+		cp	cht_PSGN
 		jr	z,.siln_psg_n
-		cp	0A0h
+		cp	cht_FM
 		jr	z,.siln_fm
-		cp	0B0h
+		cp	cht_FM3sp
 		jr	z,.siln_fm
 		rst	8
-		cp	0C0h
+		cp	cht_FM6DAC
 		jr	z,.siln_dac
-		cp	0D0h
+		cp	cht_PCM
 		jr	z,.siln_pcm
-		cp	0E0h
+		cp	cht_PWM
 		jr	z,.siln_pwm
+		
+		;!@
+		cp	cht_PCO
+		jr	z,.siln_pco
 		ret
 .siln_psg_n:
 		xor	a
@@ -1750,6 +1775,12 @@ dtbl_singl:
 .rcyl_com:
 		add	hl,bc
 		ld	(hl),100b	; key-cut
+		ret
+		
+;!@ 
+.siln_pco:
+		;call	pco_off	;!@
+		;!@ rst	8
 		ret
 
 ; --------------------------------
@@ -1819,13 +1850,14 @@ dtbl_singl:
 
 ; --------------------------------
 .mk_list:
-		dw .mk_psg
-		dw .mk_psg
-		dw .mk_fm
-		dw .mk_fm_sp
-		dw .mk_dac
-		dw .mk_pcm
-		dw .mk_pwm
+		dw .mk_psg			;0
+		dw .mk_psg			;1
+		dw .mk_fm			;2
+		dw .mk_fm_sp		;3
+		dw .mk_dac			;4
+		dw .mk_pcm			;5
+		dw .mk_pwm			;6
+		dw .mk_pco			;!@ 7
 
 ; --------------------------------
 ; PSG and PSGN
@@ -2625,6 +2657,19 @@ dtbl_singl:
 		ld	d,a
 		add	hl,de
 		ret
+		
+; --------------------------------
+; PiCO ADPCM
+; --------------------------------
+.mk_pco:
+	if PICO == 1
+		;!@ TODO
+		rst	8
+		ret
+	else
+		rst	8
+		ret
+	endif
 
 ; ----------------------------------------
 ; NEW effect
@@ -2761,11 +2806,11 @@ dtbl_singl:
 		ld	d,0
 		ld	a,(hl)
 		and	11110000b
-		cp	80h		; PSG?
+		cp	cht_PSG		; PSG?
 		jr	z,.res_pan
-		cp	90h		; PSGN?
+		cp	cht_PSGN	; PSGN?
 		jr	z,.res_pan
-		cp	0D0h		; MCD: write separate PAN values
+		cp	cht_PCM		; MCD: write separate PAN values
 		call	z,.pan_mcd	; <-- CALL, not JP
 
 	; ----------------------------------------
@@ -2884,21 +2929,26 @@ dtbl_singl:
 .inst:
 		ld	a,(hl)
 		and	11110000b
-		cp	080h
+		cp	cht_PSG
 		jr	z,.ins_psg
-		cp	090h
+		cp	cht_PSGN
 		jr	z,.ins_psgn
-		cp	0A0h
+		cp	cht_FM
 		jr	z,.ins_fm
 		rst	8
-		cp	0B0h
+		cp	cht_FM3sp
 		jr	z,.ins_fm
-		cp	0C0h
+		cp	cht_FM6DAC
 		jp	z,.ins_dac
-		cp	0D0h
+		cp	cht_PCM
 		jp	z,.ins_pcm
-		cp	0E0h
+		cp	cht_PWM
 		jp	z,.ins_pwm
+		
+		;!@
+		cp	cht_PCO
+		jp	z,.ins_pco
+		
 		rst	8
 .invl_ins:
 		ret
@@ -3156,6 +3206,11 @@ dtbl_singl:
 		pop	ix
 		ld	a,1
 		ld	(marsUpd),a
+		ret
+		
+; ----------------------------------------
+.ins_pco:
+		;!@ TODO
 		ret
 
 ; ----------------------------------------
@@ -3478,7 +3533,8 @@ zmars_send:
 gema_init:
 		call	gema_lastbank		; Set last bank slot, solves problem with 32X
 		call	dac_off
-		xor	a
+		;!@ Pico TODO
+		xor	a		
 		ld	(marsUpd),a
 		ld	(mcdUpd),a
 		ld	(cdRamLen),a
@@ -3533,7 +3589,7 @@ gema_init:
 		ld	(hl),09Fh
 		ld	(hl),0BFh
 		ld	(hl),0DFh
-		ld	(hl),0FFh
+		ld	(hl),0FFh		
 		ret
 
 ; --------------------------------------------------------
@@ -4000,9 +4056,9 @@ fm_send_2:
 ; --------------------------------------------------------
 
 dac_on:
-		ld	a,2Bh
+		ld	a,2Bh				;DAC Enable register
 		ld	(Zym_ctrl_1),a
-		ld	a,80h
+		ld	a,80h				;Set to $80 (bit 7)=on
 		ld	(Zym_data_1),a
 		ld 	a,zopcExx
 		ld	(dac_me),a
@@ -4010,15 +4066,22 @@ dac_on:
 		ld	(dac_fill),a
 		ret
 dac_off:
-		ld	a,2Bh
+		ld	a,2Bh				;DAC Enable register
 		ld	(Zym_ctrl_1),a
-		ld	a,00h
+		ld	a,00h				;Set to $00=off
 		ld	(Zym_data_1),a
 		ld 	a,zopcRet
 		ld	(dac_me),a
 		ld 	a,zopcRet
 		ld	(dac_fill),a
 		ret
+; pco_off:
+	; if PICO == 1
+		; ;!@ TODO
+		; ret
+	; else
+		; ret
+	; endif
 
 ; --------------------------------------------------------
 ; dac_play
@@ -4198,7 +4261,7 @@ fmFreq_List:	dw 644
 		dw 1214
 
 ; ----------------------------------------
-; DAC and PWM
+; PSG
 ; ----------------------------------------
 
 psgFreq_List:
@@ -4214,7 +4277,7 @@ psgFreq_List:
 	dw 001Bh,001Ah,0018h,0017h,0016h,0015h,0013h,0012h,0011h,0010h,0009h,0001h	; x-9 *RESERVED FOR NOISE* Set to +47
 
 ; ----------------------------------------
-; DAC and PWM shared list
+; DAC, PCO, PWM shared list
 ; ----------------------------------------
 
 wavFreq_List:
@@ -4229,6 +4292,10 @@ wavFreq_List:
 	dw 0400h;,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-7
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-8
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-9
+
+; ----------------------------------------
+; !@ PiCO List !@ TODO
+; ----------------------------------------
 
 ; ----------------------------------------
 ; SegaCD PCM
@@ -4283,6 +4350,9 @@ psgcom:	db 00h,00h,00h,00h	;  0 - command 1 = key on, 2 = key off, 4 = stop snd
 	db 00h,00h,00h,00h	; 48 - MAX Volume
 	db 00h,00h,00h,00h	; 52 - Vibrato value
 	db 00h,00h,00h,00h	; 56 - General timer
+	
+;!@ TODO
+pcocom:
 
 ; --------------------------------------------------------
 fmcach_1	ds 28h
@@ -4345,43 +4415,36 @@ nikona_BuffList_e:
 ; --------------------------------------------------------
 ; Channel tables
 ;
-; PSG   80h
-; PSGN  90h
+; PSG  080h
+; PSGN 090h
 ; FM   0A0h
 ; FM3  0B0h
 ; DAC  0C0h
 ; PCM  0D0h
 ; PWM  0E0h
+; PCO  0F0h		;!@
 ; --------------------------------------------------------
 
-		org 1B00h			; <-- MUST BE x0h ALIGNED
-tblList:	dw tblPSG-tblList		;  80h
+		;!@ org 1B00h			; <-- MUST BE x0h ALIGNED
+		
+		; !@ This got relocated to 1A00,
+		;	 because the new tblPCO makes this segment's size > $200 bytes
+		;	 (variables at end get overwritten by org $1D00 segment buffers
+		org 1A00h				; <-- MUST BE x0h ALIGNED\
+		
+tblList:
+		dw tblPSG-tblList		;  80h
 		dw tblPSGN-tblList|8000h	;  90h *
 		dw tblFM-tblList		; 0A0h
 		dw tblFM3-tblList|8000h		; 0B0h *
 		dw tblFM6-tblList|8000h		; 0C0h *
 		dw tblPCM-tblList		; 0D0h
 		dw tblPWM-tblList		; 0E0h
-; 		dw 0				; 0F0h
+		dw tblPCO-tblList|8000h	; 0F0h	;!@ Single-channel flagged
+; 		dw 0					; 0F0h
 ; --------------------------------------------------------
-tblPCM:		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
-		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,01h,00h,00h,00h,00h,00h,00h	; Channel 2
-		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,02h,00h,00h,00h,00h,00h,00h	; Channel 3
-		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,03h,00h,00h,00h,00h,00h,00h	; Channel 4
-		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,04h,00h,00h,00h,00h,00h,00h	; Channel 5
-		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,05h,00h,00h,00h,00h,00h,00h	; Channel 6
-		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,06h,00h,00h,00h,00h,00h,00h	; Channel 7
-		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,07h,00h,00h,00h,00h,00h,00h	; Channel 8
-		db 00h,00h,00h,00h,00h,00h,00h,00h
-		dw -1	; end-of-list
-tblFM:		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
+tblFM:	
+		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,01h,00h,00h,00h,00h,00h,00h	; Channel 2
 		db 00h,00h,00h,00h,00h,00h,00h,00h
@@ -4389,21 +4452,28 @@ tblFM:		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,05h,00h,00h,00h,00h,00h,00h	; Channel 5
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-tblFM3:		db 00h,00h,00h,02h,00h,00h,00h,00h,00h,00h	; Channel 3 <--
+tblFM3:	
+		db 00h,00h,00h,02h,00h,00h,00h,00h,00h,00h	; Channel 3 <--
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-tblFM6:		db 00h,00h,00h,06h,00h,00h,00h,00h,00h,00h	; Channel 6 <--
+tblFM6:	
+		db 00h,00h,00h,06h,00h,00h,00h,00h,00h,00h	; Channel 6 <--
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
-tblPSG:		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
+tblPSG:	
+		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,01h,00h,00h,00h,00h,00h,00h	; Channel 2
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,02h,00h,00h,00h,00h,00h,00h	; Channel 3
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		dw -1	; end-of-list
-tblPSGN:	db 00h,00h,00h,03h,00h,00h,00h,00h,00h,00h	; Noise
+		;!@ dw -1	; end-of-list. Removed, so that PSG is continousl like with FM. !@ TODO: Might be breaking MarsCD support?
+tblPSGN:
+		db 00h,00h,00h,03h,00h,00h,00h,00h,00h,00h	; Noise
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-tblPWM:		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
+		dw -1	; end-of-list
+		;!@ Moved tblPCM towards end of table list
+tblPCM:	
+		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,01h,00h,00h,00h,00h,00h,00h	; Channel 2
 		db 00h,00h,00h,00h,00h,00h,00h,00h
@@ -4418,6 +4488,29 @@ tblPWM:		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,06h,00h,00h,00h,00h,00h,00h	; Channel 7
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,07h,00h,00h,00h,00h,00h,00h	; Channel 8
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		dw -1	; end-of-list
+tblPWM:
+		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		db 00h,00h,00h,01h,00h,00h,00h,00h,00h,00h	; Channel 2
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		db 00h,00h,00h,02h,00h,00h,00h,00h,00h,00h	; Channel 3
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		db 00h,00h,00h,03h,00h,00h,00h,00h,00h,00h	; Channel 4
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		db 00h,00h,00h,04h,00h,00h,00h,00h,00h,00h	; Channel 5
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		db 00h,00h,00h,05h,00h,00h,00h,00h,00h,00h	; Channel 6
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		db 00h,00h,00h,06h,00h,00h,00h,00h,00h,00h	; Channel 7
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		db 00h,00h,00h,07h,00h,00h,00h,00h,00h,00h	; Channel 8
+		db 00h,00h,00h,00h,00h,00h,00h,00h
+		dw -1	; end-of-list
+;!@ New Pico table (single-channel)
+tblPCO:
+		db 00h,00h,00h,00h,00h,00h,00h,00h,00h,00h	; !@ Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
 ; ----------------------------------------------------------------
