@@ -153,6 +153,7 @@ sizeof_thisbuff		ds.l 0
 		bsr	System_Render		
 ; 		bsr	.show_cursor
 		bsr	.gema_view
+		bsr	.show_me2	;!@ Update pico-hardware debug
 		bsr	Objects_Run
 		bsr	Video_BuildSprites
 
@@ -297,8 +298,7 @@ sizeof_thisbuff		ds.l 0
 ; 		tst.w	(RAM_ScreenMode).w	; Check -1
 ; 		bpl.s	.n_cbtn
 
-; .n_cbtn:
-		bsr	.show_me2	;!@ Update pico-hardware debug
+; .n_cbtn:		
 		bra	.loop
 
 .exit_this:
@@ -456,6 +456,17 @@ sizeof_thisbuff		ds.l 0
 		endif
 		moveq	#13,d1
 		bsr	Video_PrintVal
+		;GetBookRaw
+		;lea	(Controller_1).w,a6
+		move.b	pad_pageRaw(a6),d0
+		move.b	d0,(a0)
+		if VIEW_FAIRY
+		moveq	#16,d0
+		else
+		moveq	#23,d0
+		endif
+		moveq	#13,d1
+		bsr	Video_PrintVal
 		
 		
 		;Handle buttons
@@ -465,7 +476,7 @@ sizeof_thisbuff		ds.l 0
 		lea	(RAM_ScratchW).w,a0	;Value memory addr		
 		
 		;Get pen button
-		lea	(Controller_1).w,a6	;Lead c1 addr into a5
+		lea	(Controller_1).w,a6	;Lead c1 addr into a6
 		move.w	pad_hold(a6),d0	;Move pad_hold of controller into d0
 		move.w	d0,(a0)			;Move d0 pad_hold value into a0 addr
 		moveq	#08,d0			;Set xpos
@@ -1252,16 +1263,18 @@ str_TesterInfo2:
 			 ;01234567890123456789
 		dc.b "PenXY: $    ,     ",$0A
 		     ;01234567890123456789
-		dc.b "Book: $  "		
+		dc.b "Book: $  ,  "
 		dc.b 0
 		align 2
 str_TesterInfo3:
 		if PICO_MODS == 1
-		dc.b "Btn: $    ,    ,    ,    ,    ,    "
+		dc.b "Btn: $    ,    ,    ,    ,    ,    ",$0A
+		dc.b "      Pco  Pcox  P1   P2  ext ,cmbo"
 		else
-		dc.b "Btn: $    ,    ,    "
-		dc.b 0
+		dc.b "Btn: $    ,    ,    ",$0A
+		dc.b "      Pco  Pcox cmbo"
 		endif
+		dc.b 0
 		align 2
 str_Instruc:
 		if PICO == 1

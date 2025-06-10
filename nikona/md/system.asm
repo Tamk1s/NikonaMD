@@ -109,14 +109,15 @@ bitJoyPEN		equ 7
 pad			struct
 id			ds.b 1		; Controller ID
 ver			ds.b 1		; Controller type/revision
-hold			ds.w 1		; HOLD bits
-press			ds.w 1		; PRESSED bits
-release			ds.w 1		; RELEASED bits
+hold		ds.w 1		; HOLD bits
+press		ds.w 1		; PRESSED bits
+release		ds.w 1		; RELEASED bits
 x			ds.w 1		; Mouse/Pen X speed
 y			ds.w 1		; Mouse/Pen Y speed
-page			ds.w 1		; PICO page
+page		ds.w 1		; PICO page
+pageRaw		ds.w 1		; PICO page (raw, all bits)
 ext			ds.w 1
-port	ds.l 1		;!@ MMIO addr for the controller port
+port		ds.l 1		;!@ MMIO addr for the controller port
 ; pad_len		ds.l 0
 			endstruct
 
@@ -566,7 +567,8 @@ System_Input:
 		move.w	d6,d7
 .bad_y:
 		move.w	d7,pad_y(a6)
-		move.b	10(a5),d6		;Pico page
+		move.b	10(a5),d6			;Pico page
+		move.b	d6,pad_pageRaw(a6)	;;!@ Pico pageRaw		
 		moveq	#0,d7
 		moveq	#6-1,d5		; 6 pages
 .page_it:

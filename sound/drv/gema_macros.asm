@@ -227,11 +227,25 @@ gInsPwm	macro pitch,start,flags
  endif
 	endm
 	
-;!@ TODO
-gInsPco	macro pitch,start,flags
+; ----------------------------------------------------
+; !@ gInsPco - Pico ADPCM instrument
+;
+; pitch | Pitch/Octave
+; start | 24-bit pointer
+; flags | Flags: %0000fffl
+;         | l - Enable loop: No(0)/Yes(1)
+;         | f - ADPCM filter bit select: 
+;				00 = ??
+;				01 = 6 kHz, 
+;				10 = 12 kHz,
+;				11 = 16 kHz, 
+; volume | volume: %00000vvv
+;         | v - Volume strength
+; ----------------------------------------------------
+gInsPco	macro pitch,start,flags,volume
  if PICO == 1
 	dc.b $F0|flags,pitch,((start>>16)&$FF),((start>>8)&$FF)
-	dc.b start&$FF,0,0,0
+	dc.b start&$FF,volume,0,0
  else
  	dc.b $00,$00,$00,$00
 	dc.b $00,$00,$00,$00
