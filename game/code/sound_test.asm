@@ -18,7 +18,7 @@ VIEW_FAIRY		equ True		; Show status Dodo/Mifi/Fifi/Pifi
 ; ------------------------------------------------------
 
 MAX_SNDPICK		equ 7
-SET_SNDVIEWY		equ 16
+SET_SNDVIEWY		equ 17
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -106,14 +106,30 @@ sizeof_thisbuff		ds.l 0
 		bsr	Video_PrintW
 		
 	;!@ Subtitle
-	if PICO == 1 & PICO_REV == 1
-		lea	str_TesterTitle2(pc),a0
-		moveq	#10,d0
+	; if PICO == 1
+		; if PICO_REV == 1
+		; lea	str_TesterTitle2(pc),a0
+		; moveq	#10,d0
+		; moveq	#2,d1
+		; move.w	#DEF_PrintVramW|$4000,d2
+		; move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		; bsr	Video_PrintW
+		; endif
+	; endif
+		
+		;Build ver/date
+		lea	str_TesterTitleVer(pc),a0
+		moveq	#9,d0
 		moveq	#4,d1
-		move.w	#DEF_PrintVramW|$4000,d2
+		move.w	#DEF_PrintVram|$4000,d2
 		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
-		bsr	Video_PrintW
-	endif
+		bsr	Video_Print
+		lea	str_TesterTitleEmu(pc),a0
+		moveq	#18,d0
+		moveq	#5,d1
+		move.w	#DEF_PrintVram|$4000,d2
+		move.l	#splitw(DEF_HSIZE_64,DEF_VRAM_FG),d3
+		bsr	Video_Print
 		
 		lea	str_TesterInfo(pc),a0
 	if VIEW_FAIRY
@@ -128,7 +144,7 @@ sizeof_thisbuff		ds.l 0
 		lea	str_Instruc(pc),a0
 		moveq	#2,d0
 		;!@ moveq	#21,d1
-		moveq	#22,d1
+		moveq	#23,d1
 		move.w	#DEF_PrintVram|$4000,d2
 		bsr	Video_Print
 		bsr	.gema_viewinit
@@ -1246,8 +1262,87 @@ str_TesterTitle:
 		dc.b "GEMA Sound Test",0
 		align 2
 ;!@
-str_TesterTitle2:
-		dc.b "Mega-Pico mode test",0
+;str_TesterTitle2:
+		;dc.b "Mega-Pico mode test",0
+		;align 2
+	
+;!@
+str_TesterTitleVer:
+		;     012345678901234567890
+		dc.b "v1.1.2 By GenesisDoes",$0A
+		;dc.b "      06/10/2025     ",0
+		
+		;Platform flags:
+		;MCD,MARS,MARSCD
+		;CDREGION=012=JUE
+		
+		;Pico flags:
+		;PICO,COPERA,PICO_MODS,PICO_REV
+		
+		;Misc flags:
+		;EMU
+		if PICO == 1
+		 if COPERA == 1
+		  if PICO_MODS == 0
+		   dc.b "Copera   - 06/10/2025",0		   
+		  else
+		   dc.b "CoperaM  - 06/10/2025",0  
+		  endif
+		 else
+		  if PICO_REV == 0
+		   if PICO_MODS == 0
+ 		    dc.b "Pico 1   - 06/10/2025",0
+		   else
+		    dc.b "Pico 1m  - 06/10/2025",0
+ 		   endif
+		  else
+		   if PICO_MODS == 0
+ 		    dc.b "Pico 2   - 06/10/2025",0
+		   else
+		    dc.b "Mega Pico- 06/10/2025",0
+		   endif
+		  endif
+		 endif
+		else
+		 if MARSCD == 1
+		  if CDREGION == 0
+		   dc.b "CD32X(J) - 06/10/2025",0
+		  endif
+		  if CDREGION == 1
+		   dc.b "CD32X(U) - 06/10/2025",0
+		  endif
+		  if CDREGION == 2
+		   dc.b "CD32X(E) - 06/10/2025",0
+		  endif
+		 else		 
+		  if MCD == 1
+		   if CDREGION == 0
+		    dc.b "CD   (J) - 06/10/2025",0
+		   endif
+		   if CDREGION == 1
+		    dc.b "CD   (U) - 06/10/2025",0
+		   endif
+		   if CDREGION == 2
+		    dc.b "CD   (E) - 06/10/2025",0
+		   endif
+		  else
+		   if MARS == 1
+		    dc.b "  32X    - 06/10/2025",0
+		   else
+		    dc.b "Genesis  - 06/10/2025",0
+		   endif
+		  endif
+		 endif
+		endif
+		align 2
+		
+;!@
+str_TesterTitleEmu:
+		if EMU == 0
+		 dc.b "*",0
+		else
+		 dc.b "-",0
+		endif
 		align 2
 
 str_TesterInfo:
@@ -1269,27 +1364,27 @@ str_TesterInfo2:
 str_TesterInfo3:
 		if PICO_MODS == 1
 		dc.b "Btn: $    ,    ,    ,    ,    ,    ",$0A
-		dc.b "      Pco  Pcox  P1   P2  ext ,cmbo"
+		dc.b "      Pico PExt  P1   P2  Extn Cmbo"
 		else
 		dc.b "Btn: $    ,    ,    ",$0A
-		dc.b "      Pco  Pcox cmbo"
+		dc.b "      Pico PExt Cmbo"
 		endif
 		dc.b 0
 		align 2
 str_Instruc:
 		if PICO == 1
 		dc.b "PG/LR - Seq. Num#   XY - Track index",$0A
-		dc.b "WO/UD - Seq. Blk#",$0A
+		dc.b "WO/UD - Seq. Blk#   Z-PLAY auto-fill",$0A
 		dc.b "    A - STOP ALL",$0A
 		dc.b "RED/B - STOP Seq.",$0A
-		dc.b "PEN/C - PLAY Seq. Z - PLAY auto-fill"
+		dc.b "PEN/C - PLAY Seq.     START - Screen"
 		dc.b 0
 		else
-		dc.b "LR - Seq. Num#   XY - Track index",$0A
-		dc.b "UD - Seq. Blk#",$0A
+		dc.b "LR - Seq. Num#      XY - Track index",$0A
+		dc.b "UD - Seq. Blk#      Z-PLAY auto-fill",$0A
 		dc.b " A - STOP ALL",$0A
 		dc.b " B - STOP Seq.",$0A
-		dc.b " C - PLAY Seq.    Z - PLAY auto-fill"
+		dc.b " C - PLAY Seq.        START - Screen"
 		dc.b 0
 		endif
 		align 2
